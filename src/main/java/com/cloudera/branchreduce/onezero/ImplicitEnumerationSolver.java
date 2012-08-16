@@ -52,8 +52,8 @@ public class ImplicitEnumerationSolver extends Processor<PartialSolution, Curren
     job.setJarByClass(ImplicitEnumerationSolver.class);
     
     try {
-      job.getConfiguration().set(LP_PROBLEM,
-          Joiner.on("\n").join(Files.readLines(lpFile, Charsets.UTF_8)));
+      String problem = Joiner.on("\n").join(Files.readLines(lpFile, Charsets.UTF_8));
+      job.getConfiguration().set(LP_PROBLEM, problem);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -122,7 +122,8 @@ public class ImplicitEnumerationSolver extends Processor<PartialSolution, Curren
         // Okay, so it can improve the objective.
         for (int j = 0; j < deltas.length; j++) {
           if (deltas[j] < 0) {
-            if (constraints.get(j).getCoef(i) < 0) {
+            if ((constraints.get(j).getCoef(i) < 0 && !completion.get(j)) || 
+                (constraints.get(j).getCoef(i) > 0 && completion.get(j))) {
               possiblyBetter = true;
               break;
             }
@@ -135,6 +136,7 @@ public class ImplicitEnumerationSolver extends Processor<PartialSolution, Curren
       // Okay, we can't get any better than the current best, so we're fathomed.
       return;
     }
+    
     // Otherwise, keep going down the tree.
     context.emit(solution.getNext(false), solution.getNext(true));
   }
