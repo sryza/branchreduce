@@ -16,14 +16,17 @@ package com.cloudera.branchreduce.onezero;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -79,8 +82,23 @@ public class SimplifiedLpParser {
   }
   
   private static class ProblemData {
+    private static Comparator<String> VAR_NAME_COMPARATOR = new Comparator<String>() {
+      @Override
+      public int compare(String v1, String v2) {
+        int v1Start = CharMatcher.DIGIT.indexIn(v1);
+        int v2Start = CharMatcher.DIGIT.indexIn(v2);
+        if (v1.substring(0, v1Start).equals(v2.substring(0, v2Start))) {
+          Integer i1 = Integer.valueOf(v1.substring(v1Start));
+          Integer i2 = Integer.valueOf(v2.substring(v2Start));
+          return i1 - i2;
+        } else {
+          return v1.compareTo(v2);
+        }
+      }
+    };
+    
     private boolean maximize = false;
-    private Set<String> variables = Sets.newTreeSet();
+    private Set<String> variables = Sets.newTreeSet(VAR_NAME_COMPARATOR);
     private Map<String, Integer> objectiveCoefs = null;
     private List<ConstraintData> constraints = Lists.newArrayList();
     
@@ -210,6 +228,8 @@ public class SimplifiedLpParser {
             // Anything starting w/'min' means minimize.
             if (cmd.startsWith("min")) {
               problem.setMaximize(false);
+            } else {
+              problem.setMaximize(true);
             }
             state = ParseState.OBJECTIVE;
             break;
