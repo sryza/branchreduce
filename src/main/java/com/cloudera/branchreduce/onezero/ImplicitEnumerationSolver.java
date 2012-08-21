@@ -18,6 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -27,6 +28,7 @@ import com.cloudera.branchreduce.Processor;
 import com.cloudera.branchreduce.globalstate.MinimumInt;
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
+import com.google.common.collect.Sets;
 import com.google.common.io.Files;
 
 /**
@@ -103,38 +105,41 @@ public class ImplicitEnumerationSolver extends Processor<PartialSolution, Curren
       }
     }
 
+    int bestPossible = objective.eval(solution, completion);
+    int currentBestValue = context.readGlobalState().getValue();
     if (feasible) {
-      // Awesome, the best possible solution is feasible. We've fathomed the problem.
-      int value = objective.eval(solution, completion);
-      context.updateGlobalState(new CurrentBestSolution(
-          solution.complete(completion, numVariables), new MinimumInt(value)));
+      if (bestPossible < currentBestValue) {
+        // Awesome, the best possible solution is feasible. We've fathomed the problem.
+        context.updateGlobalState(new CurrentBestSolution(
+            solution.complete(completion, numVariables), new MinimumInt(bestPossible)));
+      }
       return;
     }
     
     // Okay, so maybe that didn't work. What's next? Well, we should check to see if _any_
     // feasible solution would be better than the current best solution.
-    int baseValue = objective.eval(solution);
-    int currentBestValue = context.readGlobalState().getValue();
-    boolean possiblyBetter = false;
+    int[] dlimit = new int[deltas.length];
     for (int i = fixLimit; i < numVariables; i++) {
-      int potential = baseValue + objective.getCoef(i);
-      if (potential < currentBestValue) {
+      boolean completes = completion.get(i - fixLimit);
+      int baseValue = bestPossible + (completes ? -objective.getCoef(i) : objective.getCoef(i));
+      if (baseValue < currentBestValue) {
         // Okay, so it can improve the objective.
         for (int j = 0; j < deltas.length; j++) {
           if (deltas[j] < 0) {
-            if ((constraints.get(j).getCoef(i) < 0 && !completion.get(j)) || 
-                (constraints.get(j).getCoef(i) > 0 && completion.get(j))) {
-              possiblyBetter = true;
-              break;
+            int c = constraints.get(j).getCoef(i);
+            if ((c < 0 && !completes) || (c > 0 && completes)) {
+              dlimit[j] += Math.abs(c);
             }
           }
         }
       }
     }
     
-    if (!possiblyBetter) {
-      // Okay, we can't get any better than the current best, so we're fathomed.
-      return;
+    for (int j = 0; j < deltas.length; j++) {
+      if (dlimit[j] + deltas[j] < 0) {
+        // Can't possibly satisfy the constraints-- fathom it.
+        return;
+      }
     }
     
     // Otherwise, keep going down the tree.

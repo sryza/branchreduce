@@ -70,7 +70,7 @@ public class PartialSolution implements Writable {
     for (int i = 0; i < numVariables - fixLimit; i++) {
       v.set(i + fixLimit, completion.get(i));
     }
-    return new PartialSolution(-1, numVariables, values);
+    return new PartialSolution(-1, numVariables, v);
   }
   
   public int get(int index) {
