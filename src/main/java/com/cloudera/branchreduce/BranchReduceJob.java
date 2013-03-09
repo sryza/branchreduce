@@ -37,23 +37,31 @@ public class BranchReduceJob<T extends Writable, G extends GlobalState<G>> imple
 
   private static final Log LOG = LogFactory.getLog(BranchReduceJob.class);
   
+  private static final String DEFAULT_KITTEN_CONFIG_FILE = "lua/branchreduce.lua";
+  
   private final Configuration conf;
   private final boolean runLocally;
 
   private final Map<String, Object> env;
   private final Map<String, String> resources;
-  private String kittenConfigFile = "/lua/branchreduce.lua";
+  private String kittenConfigFile;
   private String kittenJob = "branchreduce";
 
   public BranchReduceJob(boolean runLocally) {
-    this(runLocally, new Configuration());
+    this(runLocally, new Configuration(), DEFAULT_KITTEN_CONFIG_FILE);
   }
   
   public BranchReduceJob(boolean runLocally, Configuration conf) {
+    this(runLocally, conf, DEFAULT_KITTEN_CONFIG_FILE);
+  }
+  
+  public BranchReduceJob(boolean runLocally, Configuration conf,
+      String kittenConfigFile) {
     this.conf = conf;
     this.env = Maps.newHashMap();
     this.resources = Maps.newHashMap();
     this.runLocally = runLocally;
+    this.kittenConfigFile = kittenConfigFile;
     initEnv();
   }
   
