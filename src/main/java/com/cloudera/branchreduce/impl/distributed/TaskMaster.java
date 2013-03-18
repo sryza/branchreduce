@@ -16,11 +16,8 @@ package com.cloudera.branchreduce.impl.distributed;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
@@ -28,10 +25,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.Writable;
 
 import com.cloudera.branchreduce.GlobalState;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AbstractScheduledService;
 
 /**
@@ -54,24 +48,26 @@ public class TaskMaster<T extends Writable, G extends GlobalState<G>> extends Ab
   private final ExecutorService executor;
 
   private final List<WorkerProxy<T, G>> workers;
-  private final Map<Integer, Boolean> hasWork;
-  
-  private final BlockingQueue<T> tasks;
   
   private final G globalState;
   private boolean sendGlobalStateUpdate = false;
   private boolean hasStarted = false;
   
-  public TaskMaster(int vassalCount, List<T> initialTasks, G globalState) {
-    this(vassalCount, initialTasks, globalState, Executors.newCachedThreadPool());
+  private TaskSupplier<T, G> taskSupplier;
+  
+  public TaskMaster(int vassalCount, List<T> initialTasks, G globalState,
+      TaskSupplier<T, G> taskSupplier) {
+    this(vassalCount, initialTasks, globalState, Executors.newCachedThreadPool(),
+        taskSupplier);
   }
   
-  public TaskMaster(int vassalCount, List<T> initialTasks, G globalState, ExecutorService executor) {
+  public TaskMaster(int vassalCount, List<T> initialTasks, G globalState,
+      ExecutorService executor, TaskSupplier<T, G> taskSupplier) {
     this.vassalCount = vassalCount;
     this.workers = Lists.newArrayList();
-    this.hasWork = Maps.newConcurrentMap();
-    this.tasks = new LinkedBlockingQueue<T>(initialTasks);
     this.globalState = globalState;
+    this.taskSupplier = taskSupplier;
+    taskSupplier.initialize(initialTasks, vassalCount, this);
     if (!initialTasks.isEmpty()) {
       this.taskClass = (Class<T>) initialTasks.get(0).getClass();
     } else {
@@ -96,6 +92,10 @@ public class TaskMaster<T extends Writable, G extends GlobalState<G>> extends Ab
     return hasStarted;
   }
   
+  public List<WorkerProxy<T, G>> getWorkers() {
+    return workers;
+  }
+  
   public int registerWorker(final WorkerProxy<T, G> worker) {
     int id = -1;
     
@@ -113,33 +113,7 @@ public class TaskMaster<T extends Writable, G extends GlobalState<G>> extends Ab
   
   public List<T> getWork(int requestorId, G workerState) {
     updateGlobalState(workerState);
-    if (!tasks.isEmpty()) {
-      try {
-        List<T> ret = ImmutableList.of(tasks.take());
-        LOG.info("Sending work to " + requestorId);
-        return ret;
-      } catch (InterruptedException e) {
-        return ImmutableList.of();
-      }
-    } else {
-      // Need to get some more work, if anyone has any.
-      Set<Integer> workingIds = Sets.newHashSet(hasWork.keySet());
-      for (Integer workingId : workingIds) {
-        if (workingId != requestorId) {
-          WorkerProxy<T, G> worker = workers.get(workingId);
-          List<T> stolen = worker.getTasks();
-          if (!stolen.isEmpty()) {
-            List<T> ret = ImmutableList.of(stolen.get(0));
-            tasks.addAll(stolen.subList(1, stolen.size()));
-            LOG.info("Sending stolen work to " + requestorId);
-            return ret;
-         }
-        }
-      }
-      LOG.info("Could not send work to " + requestorId);
-      hasWork.remove(requestorId);
-      return ImmutableList.of();
-    }
+    return taskSupplier.getWork(requestorId, workerState, workers);
   }
 
   public boolean updateGlobalState(G other) {
@@ -153,6 +127,13 @@ public class TaskMaster<T extends Writable, G extends GlobalState<G>> extends Ab
       }
     }
     return ret;
+  }
+  
+  /**
+   * To be called by the task supplier
+   */
+  public void abortTask(int vassalId, T task) {
+    // TODO
   }
   
   @Override
@@ -173,7 +154,7 @@ public class TaskMaster<T extends Writable, G extends GlobalState<G>> extends Ab
       }
     }
     
-    if (tasks.isEmpty() && hasWork.isEmpty()) {
+    if (taskSupplier.isDone()) {
       LOG.info("Nothing to do, stopping");
       stop();
     }
@@ -186,26 +167,26 @@ public class TaskMaster<T extends Writable, G extends GlobalState<G>> extends Ab
 
   @Override
   protected void startUp() throws Exception {
-    if (tasks.isEmpty()) {
+    Map<Integer, List<T>> initialTasks = taskSupplier.assignInitialTasks();
+    if (initialTasks.isEmpty()) {
       LOG.info("No tasks to perform, exiting");
       stop();
       return;
     } else {
-      LOG.info("Initial task count = " + tasks.size());
+      LOG.info("Initial task count = " + initialTasks.size());
     }
     
     // Send tasks to all of the workers.
-    for (int i = 0; i < vassalCount; i++) {
-      final WorkerProxy<T, G> worker = workers.get(i);
-      final List<T> task = ImmutableList.of(tasks.take());
-      LOG.info("Starting " + task.size() + " units at worker " + i);
+    for (final Map.Entry<Integer, List<T>> work : initialTasks.entrySet()) {
+      final WorkerProxy<T, G> worker = workers.get(work.getKey());
+      LOG.info("Starting " + work.getValue().size() + " units at worker "
+          + work.getKey());
       executor.submit(new Runnable() {
         @Override
         public void run() {
-          worker.startTasks(task, globalState);
+          worker.startTasks(work.getValue(), globalState);
         }
       });
-      hasWork.put(i, true);
     }
   }
 

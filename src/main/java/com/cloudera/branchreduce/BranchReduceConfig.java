@@ -14,6 +14,8 @@
  */
 package com.cloudera.branchreduce;
 
+import com.cloudera.branchreduce.impl.distributed.StealingTaskSupplier;
+
 /**
  * A namespace for BranchReduce configuration parameters.
  */
@@ -21,6 +23,9 @@ public interface BranchReduceConfig {
   public static final String PROCESSOR_CLASS = "branchreduce.processor.class";
   public static final String TASK_CLASS = "branchreduce.task.class";
   public static final String GLOBAL_STATE_CLASS = "branchreduce.globalstate.class";
+  public static final String TASK_SUPPLIER_CLASS = "branchreduce.tasksupplier.class";
+  @SuppressWarnings("rawtypes")
+  public static final Class DEFAULT_TASK_SUPPLIER_CLASS = StealingTaskSupplier.class;
   
   public static final String NUM_WORKERS = "NUM_WORKERS";
   public static final String NUM_THREADS = "NUM_THREADS";

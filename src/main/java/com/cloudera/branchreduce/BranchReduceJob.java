@@ -24,6 +24,7 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.ReflectionUtils;
 
+import com.cloudera.branchreduce.impl.distributed.TaskSupplier;
 import com.cloudera.branchreduce.impl.local.MultiThreadedBranchReduceEngine;
 import com.cloudera.branchreduce.impl.local.SingleThreadedBranchReduceEngine;
 import com.cloudera.branchreduce.impl.thrift.ThriftBranchReduceEngine;
@@ -117,6 +118,11 @@ public class BranchReduceJob<T extends Writable, G extends GlobalState<G>> imple
     return this;
   }
   
+  public BranchReduceJob<T, G> setTaskSupplierClass(Class<TaskSupplier<T, G>> taskSupplierClass) {
+    conf.setClass(TASK_SUPPLIER_CLASS, taskSupplierClass, TaskSupplier.class);
+    return this;
+  }
+  
   public BranchReduceJob<T, G> setNumWorkers(int numWorkers) {
     Preconditions.checkArgument(numWorkers > 0);
     env.put(NUM_WORKERS, numWorkers);
@@ -178,6 +184,12 @@ public class BranchReduceJob<T extends Writable, G extends GlobalState<G>> imple
   public T constructInitialTask() {
     return (T) ReflectionUtils.newInstance(
         conf.getClass(TASK_CLASS, null), conf);
+  }
+  
+  @SuppressWarnings("unchecked")
+  public TaskSupplier<T, G> constructTaskSupplier() {
+    return (TaskSupplier<T, G>) ReflectionUtils.newInstance(
+        conf.getClass(TASK_SUPPLIER_CLASS, DEFAULT_TASK_SUPPLIER_CLASS), conf);
   }
   
   @SuppressWarnings("unchecked")

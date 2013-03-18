@@ -33,7 +33,9 @@ import com.cloudera.branchreduce.BranchReduceContext;
 import com.cloudera.branchreduce.BranchReduceJob;
 import com.cloudera.branchreduce.GlobalState;
 import com.cloudera.branchreduce.Processor;
+import com.cloudera.branchreduce.impl.distributed.StealingTaskSupplier;
 import com.cloudera.branchreduce.impl.distributed.TaskMaster;
+import com.cloudera.branchreduce.impl.distributed.TaskSupplier;
 import com.cloudera.kitten.appmaster.ApplicationMasterParameters;
 import com.cloudera.kitten.appmaster.ApplicationMasterService;
 import com.cloudera.kitten.appmaster.params.lua.LuaApplicationMasterParameters;
@@ -105,7 +107,8 @@ public class LordMain extends Configured implements Tool {
     LOG.info("Starting application master service");
     appMasterService.startAndWait();
     
-    TaskMaster taskMaster = new TaskMaster(numVassals, initialTasks, globalState);
+    TaskSupplier taskSupplier = job.constructTaskSupplier();
+    TaskMaster taskMaster = new TaskMaster(numVassals, initialTasks, globalState, taskSupplier);
     LordHandler lordHandler = new LordHandler(taskMaster);
     TServerSocket serverTransport = new TServerSocket(socket);
     Lord.Processor lordProc = new Lord.Processor(lordHandler);
