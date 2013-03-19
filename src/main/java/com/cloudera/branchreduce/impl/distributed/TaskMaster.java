@@ -166,26 +166,30 @@ public class TaskMaster<T extends Writable, G extends GlobalState<G>> extends Ab
 
   @Override
   protected void startUp() throws Exception {
-    Map<Integer, List<T>> initialTasks = taskSupplier.assignInitialTasks();
-    if (initialTasks.isEmpty()) {
-      LOG.info("No tasks to perform, exiting");
-      stop();
-      return;
-    } else {
-      LOG.info("Initial task count = " + initialTasks.size());
-    }
-    
-    // Send tasks to all of the workers.
-    for (final Map.Entry<Integer, List<T>> work : initialTasks.entrySet()) {
-      final WorkerProxy<T, G> worker = workers.get(work.getKey());
-      LOG.info("Starting " + work.getValue().size() + " units at worker "
-          + work.getKey());
-      executor.submit(new Runnable() {
-        @Override
-        public void run() {
-          worker.startTasks(work.getValue(), globalState);
-        }
-      });
+    try {
+      Map<Integer, List<T>> initialTasks = taskSupplier.assignInitialTasks();
+      if (initialTasks.isEmpty()) {
+        LOG.info("No tasks to perform, exiting");
+        stop();
+        return;
+      } else {
+        LOG.info("Initial task count = " + initialTasks.size());
+      }
+
+      // Send tasks to all of the workers.
+      for (final Map.Entry<Integer, List<T>> work : initialTasks.entrySet()) {
+        final WorkerProxy<T, G> worker = workers.get(work.getKey());
+        LOG.info("Starting " + work.getValue().size() + " units at worker "
+            + work.getKey());
+        executor.submit(new Runnable() {
+          @Override
+          public void run() {
+            worker.startTasks(work.getValue(), globalState);
+          }
+        });
+      }
+    } catch (Exception ex) {
+      LOG.error("Exception on startup", ex);
     }
   }
 
