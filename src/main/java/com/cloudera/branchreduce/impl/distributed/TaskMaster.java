@@ -67,7 +67,6 @@ public class TaskMaster<T extends Writable, G extends GlobalState<G>> extends Ab
     this.workers = Lists.newArrayList();
     this.globalState = globalState;
     this.taskSupplier = taskSupplier;
-    taskSupplier.initialize(initialTasks, vassalCount, this);
     if (!initialTasks.isEmpty()) {
       this.taskClass = (Class<T>) initialTasks.get(0).getClass();
     } else {

@@ -109,6 +109,7 @@ public class LordMain extends Configured implements Tool {
     
     TaskSupplier taskSupplier = job.constructTaskSupplier();
     TaskMaster taskMaster = new TaskMaster(numVassals, initialTasks, globalState, taskSupplier);
+    taskSupplier.initialize(initialTasks, numVassals, taskMaster, context.getConfiguration());
     LordHandler lordHandler = new LordHandler(taskMaster);
     TServerSocket serverTransport = new TServerSocket(socket);
     Lord.Processor lordProc = new Lord.Processor(lordHandler);

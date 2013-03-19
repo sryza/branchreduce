@@ -25,6 +25,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Writable;
 
 import com.cloudera.branchreduce.GlobalState;
@@ -49,7 +50,7 @@ public class StealingTaskSupplier<T extends Writable, G extends GlobalState<G>>
   
   @Override
   public void initialize(Collection<T> initialTasks, int vassalCount,
-      TaskMaster<T, G> master) {
+      TaskMaster<T, G> master, Configuration conf) {
     tasks.addAll(initialTasks);
     this.vassalCount = vassalCount;
   }

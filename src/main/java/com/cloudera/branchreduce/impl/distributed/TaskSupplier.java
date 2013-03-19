@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Writable;
 
 import com.cloudera.branchreduce.GlobalState;
@@ -35,7 +36,7 @@ public interface TaskSupplier<T extends Writable, G extends GlobalState<G>> {
   public boolean isDone();
   
   public void initialize(Collection<T> initialTasks, int vassalCount,
-      TaskMaster<T, G> taskMaster);
+      TaskMaster<T, G> taskMaster, Configuration conf);
   
   public Map<Integer, List<T>> assignInitialTasks();
 
