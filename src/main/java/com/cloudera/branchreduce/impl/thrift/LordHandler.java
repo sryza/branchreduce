@@ -24,7 +24,7 @@ import com.cloudera.branchreduce.impl.distributed.TaskMaster;
 
 public class LordHandler<T extends Writable, G extends GlobalState<G>> implements Lord.Iface {
 
-  private final TaskMaster<T, G> taskMaster;
+  protected final TaskMaster<T, G> taskMaster;
 
   private boolean jobFinished = false;
   private boolean finishedNotificationSent = false;

@@ -25,8 +25,8 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.ReflectionUtils;
 
 import com.cloudera.branchreduce.impl.distributed.TaskSupplier;
-import com.cloudera.branchreduce.impl.local.MultiThreadedBranchReduceEngine;
 import com.cloudera.branchreduce.impl.local.SingleThreadedBranchReduceEngine;
+import com.cloudera.branchreduce.impl.thrift.LocalRealisticBranchReduceEngine;
 import com.cloudera.branchreduce.impl.thrift.ThriftBranchReduceEngine;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
@@ -118,7 +118,7 @@ public class BranchReduceJob<T extends Writable, G extends GlobalState<G>> imple
     return this;
   }
   
-  public BranchReduceJob<T, G> setTaskSupplierClass(Class<TaskSupplier<T, G>> taskSupplierClass) {
+  public BranchReduceJob<T, G> setTaskSupplierClass(Class<? extends TaskSupplier<T, G>> taskSupplierClass) {
     conf.setClass(TASK_SUPPLIER_CLASS, taskSupplierClass, TaskSupplier.class);
     return this;
   }
@@ -155,7 +155,7 @@ public class BranchReduceJob<T extends Writable, G extends GlobalState<G>> imple
     if (runLocally) {
       int threads = (Integer) env.get(NUM_THREADS);
       engine = threads == 1 ? new SingleThreadedBranchReduceEngine() :
-        new MultiThreadedBranchReduceEngine(threads);
+        new LocalRealisticBranchReduceEngine(threads, conf);
     } else {
       engine = new ThriftBranchReduceEngine(kittenConfigFile, kittenJob,
           env, resources);
