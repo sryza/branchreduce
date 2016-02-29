@@ -1,7 +1,6 @@
 package com.cloudera.branchreduce.impl.thrift;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -21,11 +20,14 @@ import com.cloudera.branchreduce.impl.distributed.TaskSupplier;
 import com.cloudera.branchreduce.impl.distributed.Worker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Service.State;
 
 public class LocalRealisticBranchReduceEngine implements BranchReduceEngine {
   
   private static final Log LOG = LogFactory.getLog(LocalRealisticBranchReduceEngine.class);
 
+  private static final int CHECK_FOR_COMPLETION_INTERVAL = 200;
+  
   private TaskMaster taskMaster;
   private int numVassals;
   private Class taskClass;
@@ -39,6 +41,7 @@ public class LocalRealisticBranchReduceEngine implements BranchReduceEngine {
   @Override
   public <T extends Writable, G extends GlobalState<G>> BranchReduceContext<T, G> run(
       BranchReduceJob<T, G> job) {
+    taskClass = job.getTaskClass();
     TaskSupplier<T, G> taskSupplier = job.constructTaskSupplier();
     List<T >initialTasks = ImmutableList.of(job.constructInitialTask());
     TaskMaster<T, G> taskMaster = new TaskMaster<T, G>(numVassals, initialTasks,
@@ -59,8 +62,16 @@ public class LocalRealisticBranchReduceEngine implements BranchReduceEngine {
     for (int vassalId : vassalHandlers.keySet()) {
       vassalProxysById.get(vassalId).setVassalHandler(vassalHandlers.get(vassalId));
     }
+
+    while (taskMaster.state() != State.TERMINATED) {
+      try {
+        Thread.sleep(CHECK_FOR_COMPLETION_INTERVAL);
+      } catch (InterruptedException ex) {
+        LOG.warn("Interrupted while waiting to check for completion");
+      }
+    }
     
-    return null;
+    return new BranchReduceContext<T, G>(job.getConfiguration(), taskMaster.getGlobalState());
   }
   
   
